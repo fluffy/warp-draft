@@ -216,13 +216,13 @@ This document defines a protocol that can be used interchangeably both over a QU
 Both provide streams and datagrams with similar semantics (see {{?I-D.ietf-webtrans-overview, Section 4}});
 thus, the main difference lies in how the servers are identified and how the connection is established.
 
-## WebTransport
+### WebTransport
 
 A MoQTransport server that is accessible via WebTransport can be identified using an HTTPS URI ({{!RFC9110, Section 4.2.2}}).
 A MoQTransport session can be established by sending an extended CONNECT request to the host and the path indicated by the URI,
 as described in {{WebTransport, Section 3}}.
 
-## Native QUIC
+### Native QUIC
 
 A MoQTransport server that is accessible via native QUIC can be identified by a URI with a "moq" scheme.
 The "moq" URI scheme is defined as follows, using definitions from {{!RFC3986}}:
@@ -242,6 +242,53 @@ by setting up a QUIC connection to the host and port identified by the `authorit
 The `path-abempty` and `query` portions of the URI are communicated to the server using
 the PATH parameter ({{path}}).
 The ALPN value {{!RFC7301}} used by the protocol is `moq-00`.
+
+## Session initialization {#session-init}
+
+The first stream opened is a client-initiated bidirectional stream where the peers exchange SETUP messages ({{message-setup}}). The subsequent streams MAY be either unidirectional or bidirectional. For exchanging content, an application would typically send a unidirectional stream containing a single OBJECT message ({{message-object}}), as putting more than one object into one stream may create head-of-line blocking delays.  However, if one object has a hard dependency on another object, putting them on the same stream could be a valid choice.
+
+## Cancellation {#session-cancellation}
+A QUIC stream MAY be canceled at any point with an error code.
+The producer does this via a `RESET_STREAM` frame while the consumer requests cancellation with a `STOP_SENDING` frame.
+
+When using `order`, lower priority streams will be starved during congestion, perhaps indefinitely.
+These streams will consume resources and flow control until they are canceled.
+When nearing resource limits, an endpoint SHOULD cancel the lowest priority stream with error code 0.
+
+The sender MAY cancel streams in response to congestion.
+This can be useful when the sender does not support stream prioritization.
+
+
+## Termination {#session-termination}
+The transport session can be terminated at any point.
+When native QUIC is used, the session is closed using the CONNECTION\_CLOSE frame ({{QUIC, Section 19.19}}).
+When WebTransport is used, the session is closed using the CLOSE\_WEBTRANSPORT\_SESSION capsule ({{WebTransport, Section 5}}).
+
+The application MAY use any error message and SHOULD use a relevant code, as defined below:
+
+|------|--------------------|
+| Code | Reason             |
+|-----:|:-------------------|
+| 0x0  | Session Terminated |
+|------|--------------------|
+| 0x1  | Generic Error      |
+|------|--------------------|
+| 0x2  | Unauthorized       |
+|------|--------------------|
+| 0x10 | GOAWAY             |
+|------|--------------------|
+
+* Session Terminated
+No error occurred; however the endpoint wishes to terminate the session.
+
+* Generic Error
+An unclassified error occurred.
+
+* Unauthorized:
+The endpoint breached an agreement, which MAY have been pre-negotiated by the application.
+
+* GOAWAY:
+The endpoint successfully drained the session after a GOAWAY was initiated ({{message-goaway}}).
 
 # Stream Mapping  {#stream-mapping}
 
@@ -279,17 +326,6 @@ The sender MUST respect flow control even if means delivering streams out of sen
 It is OPTIONAL to prioritize retransmissions.
 
 
-## Cancellation
-A QUIC stream MAY be canceled at any point with an error code.
-The producer does this via a `RESET_STREAM` frame while the consumer requests cancellation with a `STOP_SENDING` frame.
-
-When using `order`, lower priority streams will be starved during congestion, perhaps indefinitely.
-These streams will consume resources and flow control until they are canceled.
-When nearing resource limits, an endpoint SHOULD cancel the lowest priority stream with error code 0.
-
-The sender MAY cancel streams in response to congestion.
-This can be useful when the sender does not support stream prioritization.
-
 ## Relays
 MoQTransport encodes the delivery information for a stream via OBJECT headers ({{message-object}}).
 
@@ -317,36 +353,6 @@ Senders MAY periodically pad the connection with QUIC PING frames to fill the co
 
 TODO: update this section to refer to {{priority-congestion}}
 
-## Termination
-The transport session can be terminated at any point.
-When native QUIC is used, the session is closed using the CONNECTION\_CLOSE frame ({{QUIC, Section 19.19}}).
-When WebTransport is used, the session is closed using the CLOSE\_WEBTRANSPORT\_SESSION capsule ({{WebTransport, Section 5}}).
-
-The application MAY use any error message and SHOULD use a relevant code, as defined below:
-
-|------|--------------------|
-| Code | Reason             |
-|-----:|:-------------------|
-| 0x0  | Session Terminated |
-|------|--------------------|
-| 0x1  | Generic Error      |
-|------|--------------------|
-| 0x2  | Unauthorized       |
-|------|--------------------|
-| 0x10 | GOAWAY             |
-|------|--------------------|
-
-* Session Terminated
-No error occurred, however the endpoint wishes to terminate the session.
-
-* Generic Error
-An unclassified error occurred.
-
-* Unauthorized:
-The endpoint breached an agreement, which MAY have been pre-negotiated by the application.
-
-* GOAWAY:
-The endpoint successfully drained the session after a GOAWAY was initiated ({{message-goaway}}).
 
 # Prioritization and Congestion Response Considerations {#priority-congestion}
 
@@ -703,7 +709,7 @@ The server MAY be a producer or consumer.
 The server:
 
 * MAY initiate a graceful shutdown by sending a GOAWAY message.
-* MUST close the QUIC connection after a timeout with the GOAWAY error code ({{termination}}).
+* MUST close the QUIC connection after a timeout with the GOAWAY error code ({{session-termination}}).
 * MAY close the QUIC connection with a different error code if there is a fatal error before shutdown.
 * SHOULD wait until the `GOAWAY` message and any pending streams have been fully acknowledged, plus an extra delay to ensure they have been processed.
 
