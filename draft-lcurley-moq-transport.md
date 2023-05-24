@@ -66,7 +66,6 @@ It was originally developed for live media, but has been generalized for similar
 
 * {{model}} covers how object model for the MoqTransport.
 * {{session}} covers aspects of setting up a MoQ transport session.
-* {{stream-mapping}} covers how QUIC is used to transfer objects.
 * {{priority-congestion}} covers protocol considerations on prioritization schemes and congestion response overall.
 * {{relays-moq}} covers behavior at the relay entities.
 * {{messages}} covers how messages are encoded on the wire.
@@ -290,59 +289,6 @@ The endpoint breached an agreement, which MAY have been pre-negotiated by the ap
 * GOAWAY:
 The endpoint successfully drained the session after a GOAWAY was initiated ({{message-goaway}}).
 
-# Stream Mapping  {#stream-mapping}
-
-MoQTransport endpoints communicate over QUIC streams. Every stream is a sequence of messages, framed as described in {{messages}}.
-
-The first stream opened is a client-initiated bidirectional stream where the peers exchange SETUP messages ({{message-setup}}). The subsequent streams MAY be either unidirectional and bidirectional. For exchanging content, an application would typically send a unidirectional stream containing a single OBJECT message ({{message-object}}).
-
-Messages SHOULD be sent over the same stream if ordering is desired.
-
-
-## Prioritization
-MoQTransport utilizes stream prioritization to deliver the most important content during congestion.
-
-TODO: Revisit the prioritization scheme and possibly move some of this to {{priority-congestion}}.
-
-The producer may assign a numeric delivery order to each object ({{send-order}})
-
-This is a strict prioritization scheme, such that any available bandwidth is allocated to streams in ascending priority order.
-
-As explained in {{order-priorities-and-options}}, the working group has not reached consensus
-on how the emitters mark objects so that relays can apply their preferences. This leads to at
-least two possible implementations:
-
-* if using the "send order" logic, the sender SHOULD prioritize streams based on the send order.
-
-* if using the "priority" logic, the sender SHOULD send objects in streams corresponding to the object priority, and should mark these streams with the corresponding priority value.
-
-If two streams have the same send order, they SHOULD receive equal bandwidth (round-robin).
-
-QUIC supports stream prioritization but does not standardize any mechanisms; see Section 2.3 in {{QUIC}}.
-In order to support prioritization, a QUIC library MUST expose a API to set the priority of each stream.
-This is relatively easy to implement; the next QUIC packet should contain a STREAM frame for the next pending stream in priority order.
-
-The sender MUST respect flow control even if means delivering streams out of send order.
-It is OPTIONAL to prioritize retransmissions.
-
-
-## Congestion Control
-As covered in the motivation section ({{motivation}}), the ability to prioritize or cancel streams is a form of congestion response.
-It's equally important to detect congestion via congestion control, which is handled in the QUIC layer {{QUIC-RECOVERY}}.
-
-Bufferbloat occurs when routers queue packets for too long instead of dropping the packet, and can introduce significant latency.
-This latency significantly reduces the ability for the application to prioritize or drop content in response to congestion.
-Senders SHOULD use a congestion control algorithm that reduces this bufferbloat (ex. {{BBR}}).
-It is NOT RECOMMENDED to use a loss-based algorithm (ex. {{NewReno}}) unless the network fully supports ECN.
-
-Live content is typically application-limited, which means that the encoder is the limiting factor and not the network.
-Most TCP congestion control algorithms will only increase the congestion window if it is full, limiting the upwards mobility when application-limited.
-Senders SHOULD use a congestion control algorithm that is designed for application-limited flows (ex. GCC).
-Senders MAY periodically pad the connection with QUIC PING frames to fill the congestion window.
-
-TODO: update this section to refer to {{priority-congestion}}
-
-
 # Prioritization and Congestion Response Considerations {#priority-congestion}
 
 TODO: This is a placeholder section to capture details on
@@ -374,7 +320,7 @@ As stated in motivation ({{motivation}}), the network is unable to maintain this
 The encoder determines how to behave during congestion by assigning each object a numeric send order. The send order SHOULD be followed when possible to ensure that the most important media is delivered when throughput is limited. Note that the contents within each object are still delivered in order; this send order only applies to the ordering between objects.
 
 A sender MUST send each object over a dedicated QUIC stream.
-The QUIC library should support prioritization ({{prioritization}}) such that streams are transmitted in send order.
+The QUIC library should support prioritization ({{stream-prioritization}}) such that streams are transmitted in send order.
 
 A receiver MUST NOT assume that objects will be received in send order for a number of reasons:
 
@@ -396,6 +342,23 @@ The latter rule is generally agreed as a way to ensure freshness, and to recover
 consensus and define meta data that control this behavior.
 
 There have been proposals to allow emitters to coordinate the allocation of layer priorities across multiple coordinated tracks. At this point, these proposals have not reached consensus.
+
+## Stream Prioritization {#stream-prioritization}
+MoQTransport utilizes stream prioritization to deliver the most important content during congestion.
+
+As mentioned earlier, the working group has not reached consensus
+on how the producers mark objects so that relays can apply their preferences. This leads to at least two possible implementations:
+
+* if using the "send order" logic, the sender SHOULD prioritize streams based on the send order.
+
+* if using the "priority" logic, the sender SHOULD send objects in streams corresponding to the object priority, and should mark these streams with the corresponding priority value.
+
+If two streams have the same send order, they SHOULD receive equal bandwidth (round-robin).
+
+QUIC supports stream prioritization but does not standardize any mechanisms; see Section 2.3 in {{QUIC}}. In order to support prioritization, a QUIC library MUST expose a API to set the priority of each stream. This is relatively easy to implement; the next QUIC packet should contain a STREAM frame for the next pending stream in priority order.
+
+The sender MUST respect flow control even if means delivering streams out of send order. It is OPTIONAL to prioritize retransmissions.
+
 
 # Relays {#relays-moq}
 
