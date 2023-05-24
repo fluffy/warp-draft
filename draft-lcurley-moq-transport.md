@@ -65,7 +65,6 @@ either directly or via WebTransport {{WebTransport}}.
 It was originally developed for live media, but has been generalized for similar use-cases.
 
 * {{model}} covers how object model for the MoqTransport.
-* {{objects}} covers how live content is fragmented into objects.
 * {{transport-protocols}} covers aspects of setting up a MoQ transport session.
 * {{stream-mapping}} covers how QUIC is used to transfer objects.
 * {{priority-congestion}} covers protocol considerations on prioritization schemes and congestion response overall.
@@ -208,15 +207,6 @@ A transport session is established for each track bundle.
 The client issues a CONNECT request with a URL which the server uses for identification and authentication.
 All control messages and prioritization occur within the context of a single transport session, which means a single track bundle.
 When WebTransport is used, multiple transport sessions may be pooled over a single QUIC connection for efficiency.
-
-
-# Objects
-MoQTransport works by transferring objects over QUIC streams.
-The application determines how live content is fragmented into tracks, groups, and objects.
-
-## Groups
-TODO: Add text describing iteration of group and intra object priorities within a group and their relation to congestion response. Add how it refers to {{priority-congestion}}
-
 
 # Supported Transport Protocols  {#transport-protocols}
 
