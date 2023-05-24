@@ -326,17 +326,6 @@ The sender MUST respect flow control even if means delivering streams out of sen
 It is OPTIONAL to prioritize retransmissions.
 
 
-## Relays
-MoQTransport encodes the delivery information for a stream via OBJECT headers ({{message-object}}).
-
-A relay SHOULD prioritize streams ({{prioritization}}) based on the send order.
-A relay MAY change the send order, in which case it SHOULD update the value on the wire for future hops.
-
-A relay that reads from a stream and writes to stream in order will introduce head-of-line blocking.
-Packet loss will cause stream data to be buffered in the QUIC library, awaiting in order delivery, which will increase latency over additional hops.
-To mitigate this, a relay SHOULD read and write QUIC stream data out of order subject to flow control limits.
-See section 2.2 in {{QUIC}}.
-
 ## Congestion Control
 As covered in the motivation section ({{motivation}}), the ability to prioritize or cancel streams is a form of congestion response.
 It's equally important to detect congestion via congestion control, which is handled in the QUIC layer {{QUIC-RECOVERY}}.
@@ -440,6 +429,19 @@ Relays MUST ensure that publishers are authorized by:
 Relays respond with "ANNOUNCE OK" and/or "ANNOUNCE ERROR" control messages providing the results of announcement.
 
 OBJECT message header carry short hop-by-hop Track Id that maps to the Full Track Name (see {{message-subscribe-ok}}). Relays use the Track ID of an incoming OBJECT message to identify its track and find the active subscribers for that track. Relays MUST NOT depend on OBJECT payload content for making forwarding decisions and MUST only depend on the fields, such as priority order and other metadata properties in the OBJECT message header. Unless determined by congestion response, Relays MUST forward the OBJECT message to the matching subscribers.
+
+## Relay Object Handling
+MoQTransport encodes the delivery information for a stream via OBJECT headers ({{message-object}}).
+
+A relay MUST treat the object payload as opaque. 
+A relay MUST NOT combine, split, or otherwise modify object payloads.
+A relay SHOULD prioritize streams ({{priority-congestion}}) based on the send order/object priority.
+
+A relay that reads from a stream and writes to stream in order will introduce head-of-line blocking.
+Packet loss will cause stream data to be buffered in the QUIC library, awaiting in order delivery, which will increase latency over additional hops.
+To mitigate this, a relay SHOULD read and write QUIC stream data out of order subject to flow control limits.
+See section 2.2 in {{QUIC}}.
+
 
 ## Relay Discovery and Failover
 
