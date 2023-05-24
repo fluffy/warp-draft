@@ -399,24 +399,17 @@ There have been proposals to allow emitters to coordinate the allocation of laye
 
 # Relays {#relays-moq}
 
-The Relays play an important role for enabling low latency delivery within the MoQ architecture. This specification allows for a delivery protocol based on a publish/subscribe metaphor where some endpoints, called publishers, publish objects and
-some endpoints, called subscribers, consume those objects. Relays leverage this publish/subscribe metaphor to form an overlay delivery network similar/in-parallel to what CDN provides today.
-
-Relays serves as policy enforcement points by validating subscribe
-and publish requests to the tracks.
+Relays are leveraged to enable distribution scale in the MoQ architecture. Relays can be used to form an overlay delivery network, similar in functionality to  Content Delivery Networks (CDNs). Additionally, relays serve as policy enforcement points by validating subscribe and publish requests.
 
 ## Subscriber Interactions
 
-Subscribers interact with the Relays by sending a "SUBSCRIBE REQUEST"  ({{message-subscribe-req}}) control message for the tracks of interest. Relays MUST ensure subscribers are authorized for the tracks. This is done by
+Subscribers interact with the Relays by sending a "SUBSCRIBE REQUEST"  ({{message-subscribe-req}}) control message for the tracks of interest. Relays MUST ensure subscribers are authorized to subscribe to the requested tracks. This is done by verifying that the subscriber is authorized to access the content associated with the "Full Track Name". The authorization information can be part of subscription request itself or part of the encompassing session. The specifics of how a relay authorizes a user are outside the scope of this specification.
 
-- Verifying that the subscriber is authorized to access the content associated with the "Full Track Name". The authorization information can be part of subscriptions themselves or part of the encompassing session. Specifics of where the authorization happens, either at the relays or forwarded for further processing, depends on the way the relay is managed and is application specific (typically based on prior business agreement).
+The endpoint making the subscribe request is notified of the result of the subscription, via "SUBSCRIBE OK" ({{message-subscribe-ok}}) or the "SUBSCRIBE ERROR" {{message-subscribe-error}} control message.
 
-For successful subscriptions, relays proceed to save the subscription information by maintaining mapping from the track information to the list of subscribers. This will enable relays to forward matching publishes on the requested track. Subscriptions stay active until it is expired or the publisher of the track stops producing objects or other reasons that result in error (see {{message-subscribe-error}}).
+For successful subscriptions, the sender maintains a list of subscribers for each full track name. Each new OBJECT belonging to the track MUST be forwarded to each active subscriber, unless determined by congestion response. A subscription remains active until it expires, or until the publisher of the track stops producing objects or there is a subscription error (see {{message-subscribe-error}}).
 
-In all the scenarios, the end-point making the subscribe request is notified of the result of the subscription, via "SUBSCRIBE OK" ({{message-subscribe-ok}}) or the "SUBSCRIBE ERROR" {{message-subscribe-error}} control message.
-
-Relays MAY aggregate subscriptions for a given track when multiple subscribers request for the same track. Subscriptions aggregation allows relays to share the cache and forward only the unique subscriptions per track for further processing, say to setup routing for delivering objects, rather than forwarding all the subscriptions received. When the authorization information is carried in the subscribes, the relay MUST authorize the subscribe requests, in order to deduplicate and serve the subscriptions from the shared cache.
-
+Relays MAY aggregate authorized subscriptions for a given track when multiple subscribers request the same track. Subscription aggregation allows relays to make only a single forward subscription for the track. The published content received from the forward subscription request is cached and shared among the pending subscribers.
 
 ## Publisher Interactions
 
