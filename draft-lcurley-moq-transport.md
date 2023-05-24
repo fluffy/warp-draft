@@ -65,7 +65,7 @@ either directly or via WebTransport {{WebTransport}}.
 It was originally developed for live media, but has been generalized for similar use-cases.
 
 * {{model}} covers how object model for the MoqTransport.
-* {{transport-protocols}} covers aspects of setting up a MoQ transport session.
+* {{session}} covers aspects of setting up a MoQ transport session.
 * {{stream-mapping}} covers how QUIC is used to transfer objects.
 * {{priority-congestion}} covers protocol considerations on prioritization schemes and congestion response overall.
 * {{relays-moq}} covers behavior at the relay entities.
@@ -199,7 +199,7 @@ Full Track Name = security-camera.example.com/camera1/hd-video
 
 ### Connection URL
 
-Each track MAY have one or more associated connection URLs specifying network hosts through which a track may be accessed. The syntax of the Connection URL and the associated connection setup procedures are specific to the underlying transport protocol usage {{transport-protocols}}.
+Each track MAY have one or more associated connection URLs specifying network hosts through which a track may be accessed. The syntax of the Connection URL and the associated connection setup procedures are specific to the underlying transport protocol usage {{session}}.
 
 
 ## Session
@@ -208,7 +208,9 @@ The client issues a CONNECT request with a URL which the server uses for identif
 All control messages and prioritization occur within the context of a single transport session, which means a single track bundle.
 When WebTransport is used, multiple transport sessions may be pooled over a single QUIC connection for efficiency.
 
-# Supported Transport Protocols  {#transport-protocols}
+# Sessions {#sesion}
+
+## Session establishment {#session-establishment}
 
 This document defines a protocol that can be used interchangeably both over a QUIC connection directly [QUIC], and over WebTransport [WebTransport].
 Both provide streams and datagrams with similar semantics (see {{?I-D.ietf-webtrans-overview, Section 4}});
@@ -229,7 +231,7 @@ The "moq" URI scheme is defined as follows, using definitions from {{!RFC3986}}:
 moq-URI = "moq" "://" authority path-abempty [ "?" query ]
 ~~~~~~~~~~~~~~~
 
-The `authority` portion MUST NOT contain a non-empty `userinfo` portion.
+The `authority` portion MUST NOT contain a non-empty `host` portion.
 The `moq` URI scheme supports the `/.well-known/` path prefix defined in {{!RFC8615}}.
 
 This protocol does not specify any semantics on the `path-abempty` and `query` portions of the URI.
